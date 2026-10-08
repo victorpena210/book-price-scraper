@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local credentials and database exports
+.env
+.env.*
+!.env.example
+*.sql.gz
+*.dump

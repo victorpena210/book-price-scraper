@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 let people = [], configured = false, busy = false, stopRequested = false, attempts = 0;
 let lookupVersion = '';
+let session = null;
 const results = new Map(), completed = new Set(), queryCache = new Map(), rowCells = new Map();
 const normalized = value => (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 const queryKey = p => JSON.stringify([p.fullName, p.residenceCity, p.residenceState].map(normalized));
@@ -20,8 +21,21 @@ function controls() {
   $('request-count').textContent = attempts;
 }
 
-async function api(path, options) {
-  const response = await fetch(path, {cache:'no-store', ...options});
+async function api(path, options = {}) {
+  const headers = {...options.headers};
+  if (!['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())) {
+    if (!session) throw new Error('Please sign in again before continuing.');
+    headers[session.csrfHeader] = session.csrfToken;
+  }
+  const response = await fetch(path, {cache:'no-store', credentials:'same-origin', ...options, headers});
+  if (response.status === 401) {
+    stopRequested = true; configured = false; session = null;
+    people = []; results.clear(); completed.clear(); queryCache.clear(); rowCells.clear();
+    $('people').replaceChildren();
+    window.location.replace('/login?expired');
+    throw new Error('Your session has ended. Please sign in again.');
+  }
+  if (response.status === 204) return null;
   let body;
   try { body = await response.json(); } catch { throw new Error('The app returned an unreadable response. Check its console.'); }
   if (!response.ok) throw new Error(body.message || body.detail || `Request failed (HTTP ${response.status}).`);
@@ -149,4 +163,21 @@ $('download').addEventListener('click', () => {
   const link = document.createElement('a'); link.href = url; link.download = 'melissa-test-results.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url),1000);
 });
-load();
+$('sign-out').addEventListener('click', async () => {
+  stopRequested = true; $('sign-out').disabled = true;
+  try {
+    await api('/logout', {method:'POST'});
+    window.location.replace('/login?logout');
+  } catch (error) {
+    showError(error.message); $('sign-out').disabled = false;
+  }
+});
+async function initialize() {
+  try {
+    session = await api('/api/session');
+    $('signed-in-email').textContent = session.email;
+    $('sign-out').disabled = false;
+    await load();
+  } catch (error) { showError(error.message); }
+}
+initialize();

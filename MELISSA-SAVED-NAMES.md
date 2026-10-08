@@ -42,7 +42,7 @@ Official result-code reference: https://docs.melissa.com/cloud-api/personator-se
 
 No new database migration is required. The original table names and database remain in use. Testing performs read-only database operations. The scraper no longer deletes saved people just because a later parse omits their names. Existing people are still reused and their stored phone numbers preserved when a new scrape updates their obituary details.
 
-Existing direct lookup endpoints and `/api/people/missing-phone` remain available. The old `/api/obituaries/melissa` endpoint still re-scrapes; the new page uses only `/api/people/melissa/records` and JSON `POST /api/people/melissa/test`. Do not use the old endpoint to test the saved database.
+All API endpoints now require sign-in. Direct paid lookup endpoints additionally require POST and a CSRF token; `/api/people/missing-phone` remains a read-only GET. See [SECURE-LOGIN.md](SECURE-LOGIN.md). The old `/api/obituaries/melissa` endpoint still re-scrapes; the new page uses only `/api/people/melissa/records` and JSON `POST /api/people/melissa/test`. Do not use the old endpoint to test the saved database.
 
 The JSON test endpoint accepts `{"personIds":[1,2]}` with 1–25 IDs and returns per-person diagnostics. It validates all IDs before making a request, deduplicates name/location queries within the request, and rejects concurrent saved-name batches. All paid requests are explicit actions, not startup actions.
 

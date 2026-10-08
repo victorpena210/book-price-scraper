@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Sign in · Contact Tracker</title>
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">Contact Tracker</p>
+  <h1>Welcome back</h1>
+  <p class="intro">Sign in to view your saved contacts and run lookups.</p>
+  <p class="notice error" role="alert" th:if="${param.error}">Unable to sign in. Check your email and password. After repeated attempts, wait 15 minutes and try again.</p>
+  <p class="notice" role="status" th:if="${param.logout}">You have been signed out.</p>
+  <p class="notice" role="status" th:if="${param.expired}">Your session has ended. Sign in again to continue.</p>
+  <form th:action="@{/login}" method="post">
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" autocomplete="username" maxlength="254" required autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+  </form>
+  <p class="help">Access is by invitation. Contact your administrator if you need help signing in.</p>
+</main>
+</body>
+</html>

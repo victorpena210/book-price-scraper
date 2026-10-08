@@ -16,10 +16,14 @@ function fixture({key=true,mode='ok',blocked=false}={}){
  const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const person=(id,name,city='Austin')=>({personId:id,fullName:name,residenceCity:city,residenceState:'TX',relationship:'sibling',deceasedName:'Example'});
  const rows=[person(1,'Taylor Example'),person(2,'Taylor Example'),person(3,'Casey Example','Dallas')];
- const state={calls:[],mode,key,release:null,version:'2026-10-08.3'};
+ const state={calls:[],requests:[],redirects:[],mode,key,release:null,version:'2026-10-08.3'};
  const all=[];
  const document={getElementById:get,createElement:tag=>{const e=new Element(tag);all.push(e);return e;},createDocumentFragment:()=>new Element('fragment'),querySelectorAll:()=>all.filter(e=>e.dataset.testPerson)};
- const context=vm.createContext({document,console,Blob,URL,Date,setTimeout:fn=>setTimeout(fn,0),fetch:async(url,options)=>{
+ const context=vm.createContext({document,console,Blob,URL,Date,window:{location:{replace:url=>state.redirects.push(url)}},setTimeout:fn=>setTimeout(fn,0),fetch:async(url,options)=>{
+  state.requests.push({url,options});
+  if(url==='/api/session') return {ok:true,json:async()=>({email:'clay@example.test',csrfHeader:'X-CSRF-TOKEN',csrfToken:'test-csrf'})};
+  if(url==='/logout') return {ok:true,status:204};
+  if(state.mode==='expired') return {ok:false,status:401};
   if(url.endsWith('/records'))return {ok:true,json:async()=>({apiKeyConfigured:state.key,totalPeople:rows.length,totalObituaries:2,people:rows,lookupVersion:state.version})};
   const id=JSON.parse(options.body).personIds[0];state.calls.push(id);
   if(blocked)await new Promise(resolve=>state.release=resolve);
@@ -28,7 +32,7 @@ function fixture({key=true,mode='ok',blocked=false}={}){
   return {ok:true,json:async()=>({results:[result],apiRequests:1,stopped:failed,message:result.message})};
  }});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/main/resources/static/saved-people.js'),'utf8'),context);
- return {context,state,get,all,rows,ready:()=>waitUntil(()=>!get('reload').disabled)};
+ return {context,state,get,all,rows,ready:()=>waitUntil(()=>get('people-count').textContent===3 && !get('reload').disabled)};
 }
 async function waitUntil(predicate){for(let i=0;i<100;i++){if(predicate())return;await new Promise(r=>setTimeout(r,2));}throw new Error('fixture did not settle');}
 test('loading is read-only; single then all deduplicates saved names across runs',async()=>{
@@ -66,4 +70,23 @@ test('updated backend version clears stale session results on reload without ano
  assert.equal(f.get('tested-count').textContent,0);assert.equal(f.get('request-count').textContent,0);
  assert.deepEqual(f.state.calls,[1,3]);
  await f.get('test-first').click();assert.deepEqual(f.state.calls,[1,3,1]);
+});
+
+test('paid calls carry session CSRF token and same-origin credentials',async()=>{
+ const f=fixture();await f.ready();await f.get('test-first').click();
+ const request=f.state.requests.find(r=>r.url.endsWith('/test'));
+ assert.equal(request.options.headers['X-CSRF-TOKEN'],'test-csrf');
+ assert.equal(request.options.credentials,'same-origin');
+ assert.equal(request.options.headers['Content-Type'],'application/json');
+});
+test('expired session stops queue, clears contacts, and redirects to login',async()=>{
+ const f=fixture();await f.ready();f.state.mode='expired';await f.get('test-all').click();
+ assert.deepEqual(f.state.redirects,['/login?expired']);assert.deepEqual(f.state.calls,[]);
+ assert.equal(f.get('people').children.length,0);assert.equal(f.get('test-all').disabled,true);
+});
+test('sign out sends a CSRF-protected POST and returns to login',async()=>{
+ const f=fixture();await f.ready();await f.get('sign-out').click();
+ const request=f.state.requests.find(r=>r.url==='/logout');
+ assert.equal(request.options.method,'POST');assert.equal(request.options.headers['X-CSRF-TOKEN'],'test-csrf');
+ assert.deepEqual(f.state.redirects,['/login?logout']);
 });

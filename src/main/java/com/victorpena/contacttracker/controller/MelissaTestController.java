@@ -3,7 +3,7 @@ package com.victorpena.contacttracker.controller;
 import com.victorpena.contacttracker.contact.ContactCandidate;
 import com.victorpena.contacttracker.contact.MelissaPersonSearchClient;
 import com.victorpena.contacttracker.contact.MelissaSearchResult;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,7 +23,7 @@ public class MelissaTestController {
     }
 
     /** Shows the request inputs, result codes and pagination without the API key. */
-    @GetMapping("/diagnose")
+    @PostMapping("/diagnose")
     public MelissaSearchResult diagnose(
             @RequestParam String name,
             @RequestParam(defaultValue = "") String city,
@@ -45,7 +45,7 @@ public class MelissaTestController {
      * &city=San Marcos
      * &state=Texas
      */
-    @GetMapping("/search-by-location")
+    @PostMapping("/search-by-location")
     public List<ContactCandidate> searchByLocation(
             @RequestParam String name,
             @RequestParam(defaultValue = "") String city,
@@ -62,7 +62,7 @@ public class MelissaTestController {
     /*
      * Existing name-only test.
      */
-    @GetMapping("/search-by-name")
+    @PostMapping("/search-by-name")
     public List<ContactCandidate> searchByName(
             @RequestParam String name
     ) {
@@ -75,7 +75,7 @@ public class MelissaTestController {
     /*
      * Existing name + postal-code test.
      */
-    @GetMapping("/search")
+    @PostMapping("/search")
     public List<ContactCandidate> searchByPostal(
             @RequestParam String name,
             @RequestParam String postal

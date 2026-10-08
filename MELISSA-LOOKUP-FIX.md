@@ -35,29 +35,20 @@ diagnostic compares the same name request rather than guessing a different name.
 1. Extract this ZIP, open the project in IntelliJ, and reload Maven.
 2. Keep your existing database and Melissa configuration. Stop the old app and
    rebuild/restart this updated project.
-3. In your browser, open the diagnostic endpoint with the same search inputs you
-   entered on the Melissa website. For the reported name-only comparison:
-
-   ```text
-   http://localhost:8080/api/melissa/diagnose?name=Joe%20Gaddy
-   ```
-
-   If your website search included a location, supply the same location using
-   `&city=...&state=...`, or `&postal=...`. Do not infer a survivor's location from
-   the obituary listing's location.
-
-4. Inspect `status`, `resultCodes`, `searchInputs`, `searchConditions`,
+3. Sign in at `/login` and use the dashboard to test saved names.
+4. Direct API diagnostics now require an authenticated session and a CSRF token.
+   Retrieve the token from `GET /api/session`, then send it in the returned
+   `csrfHeader` header on a **POST** to `/api/melissa/diagnose`, with the search
+   inputs as form parameters (`name`, `city`, `state`, `postal`, `match`, `page`).
+   Opening the diagnostic URL in the address bar no longer sends a paid lookup.
+5. Inspect `status`, `resultCodes`, `searchInputs`, `searchConditions`,
    `returnedRecords`, `totalRecords`, `totalPages`, and `morePagesAvailable`.
-5. If the result is `NO_EXACT_MATCH`, you can explicitly compare loose matching
-   by adding `&match=loose` to the same URL. If more pages exist, use `&page=1` for
-   the second page, `&page=2` for the third, and so on. Each visit makes one API
-   request. Candidates are not automatically saved or confirmed as an identity.
+   Loose matching and subsequent pages remain explicit paid requests.
 
-The existing `/api/melissa/search-by-name`, `/search-by-location`, and `/search`
-routes still return candidate arrays on completed searches. On failure, direct
-routes now return an HTTP error with `error`, `message`, and `resultCodes`.
-Batch failures remain in each survivor's `error` field. Use `/diagnose` to inspect
-full metadata for a particular search.
+The direct `/api/melissa/search-by-name`, `/search-by-location`, `/search`,
+and `/api/obituaries/melissa` routes also require POST, sign-in, and CSRF.
+Candidate arrays and error response bodies keep their existing formats.
+See [SECURE-LOGIN.md](SECURE-LOGIN.md) for deployment and sign-in setup.
 
 ## Reading the result
 

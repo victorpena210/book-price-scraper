@@ -1,55 +1,69 @@
 # Contact Tracker
 
-Contact Tracker manages saved people and obituary sources and lets you review Melissa Personator Search results. The application and project were previously named `book-price-scraper`.
+A private dashboard for saved contacts, obituary sources, and Melissa Personator
+Search. The GitHub repository retains its original name, book-price-scraper.
 
-## Install the renamed project
+## Deploy and sign in
 
-Stop the running application in Spring Tools. Extract this ZIP into a separate Downloads folder, then run:
+See [SECURE-LOGIN.md](SECURE-LOGIN.md) for the Railway setup and initial account.
+The dashboard and every API require sign-in. Initial accounts are provisioned
+through private deployment variables; there is no public registration page.
 
-```bash
-bash ~/Downloads/contact-tracker-update/contact-tracker/scripts/install-rename.sh
+The app requires Java 17 or later, Maven, and MySQL. The main class is
+`com.victorpena.contacttracker.ContactTrackerApplication`.
+
+Railway app variables:
+
+```dotenv
+SPRING_DATASOURCE_URL=jdbc:mysql://${{MySQL.MYSQLHOST}}:${{MySQL.MYSQLPORT}}/${{MySQL.MYSQLDATABASE}}
+SPRING_DATASOURCE_USERNAME=${{MySQL.MYSQLUSER}}
+SPRING_DATASOURCE_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+SERVER_ADDRESS=0.0.0.0
+SERVER_PORT=8080
+PORT=8080
 ```
 
-The installer uses your existing project at `~/Desktop/IdeaProjects/Spring-Projects/book-price-scraper` and creates `contact-tracker` beside it. It preserves the original project, copies its Git history and local settings when present, and keeps the current database configuration. It refuses to overwrite an existing destination. Optional first and second arguments specify the existing project and destination directories.
+For the first deployment, also set APP_BOOTSTRAP_EMAIL and APP_BOOTSTRAP_PASSWORD
+privately in Railway. After the account is created, remove both variables. Add
+MELISSA_API_KEY when ready to use paid lookups. Keep startup scraping disabled.
+Use /healthz for a healthcheck and port 8080 for the public domain.
 
-## Open in Spring Tools for Eclipse
+## Run locally
 
-1. Choose **File → Import → Maven → Existing Maven Projects**.
-2. Select `~/Desktop/IdeaProjects/Spring-Projects/contact-tracker` and finish the import.
-3. Open **Run → Run Configurations → Spring Boot App** and select your previous application configuration. Rename the configuration to **ContactTrackerApplication**, change **Project** to `contact-tracker`, and set **Main type** to `com.victorpena.contacttracker.ContactTrackerApplication`.
-4. Leave your existing **Environment** values, including `DB_PASSWORD` and `MELISSA_API_KEY`, in that configuration. Click **Apply**, then **Run**.
-5. Open **http://localhost:8080/** and refresh the page. The heading and browser title should say **Contact Tracker**.
+Import this folder as an Existing Maven Project in Spring Tools for Eclipse or
+IntelliJ. Select ContactTrackerApplication and set environment variables:
 
-The original project remains available for rollback. Stop it before running Contact Tracker because both use the same local port and database. You can close the original project in Eclipse once the new project is working.
+- DB_PASSWORD for the existing local database login.
+- APP_COOKIE_SECURE=false for local HTTP development.
+- APP_BOOTSTRAP_EMAIL and APP_BOOTSTRAP_PASSWORD for the first account creation.
+- MELISSA_API_KEY when ready to test the licensed Personator Search service.
 
-## Names and data
+Start the app and open http://localhost:8080/login. Local defaults still connect
+to the existing book_price_scraper database as bookscraper_admin. Railway uses
+its own database through the variables above. Source deployment does not transfer
+local database records.
 
-| Item | Name |
-| --- | --- |
-| App | Contact Tracker |
-| Folder, Maven artifact and Eclipse project | `contact-tracker` |
-| Java package | `com.victorpena.contacttracker` |
-| Main class | `ContactTrackerApplication` |
-| Existing MySQL database | `book_price_scraper` |
+## Saved contacts
 
-The MySQL database name remains `book_price_scraper` so the renamed app connects to the same saved records. No SQL migrations, table names, endpoints, lookup behavior, or credentials change as part of this rename. Startup scraping keeps its existing setting.
+The homepage reads saved records without making a Melissa request. Use Test first
+name before testing a batch. Results are possible matches for review; testing
+does not overwrite saved records or phone numbers. Download results before
+closing the page or signing out.
 
-The homepage reads your saved database records. Opening it does not send a Melissa lookup. Use **Test first name**, **Test next 10**, the per-row **Test name** button, or **Test all remaining** to request lookups. Download session results before closing the page. See [MELISSA-SAVED-NAMES.md](MELISSA-SAVED-NAMES.md) for the lookup workflow and diagnostics.
+[MELISSA-SAVED-NAMES.md](MELISSA-SAVED-NAMES.md) describes the lookup workflow.
+[MELISSA-LOOKUP-FIX.md](MELISSA-LOOKUP-FIX.md) describes lookup diagnostics.
+Direct paid diagnostic endpoints now require authenticated POST requests and a
+CSRF token. They cannot be opened as GET links.
 
-## Verify locally
-
-Run the dashboard checks:
+## Tests
 
 ```bash
+./mvnw -Dtest=SecurityIntegrationTest,ContactTrackerApplicationTests test
 node --test tests/saved-people.test.cjs
 ```
 
-Run the selected mocked Java tests without starting the database-backed application context:
-
-```bash
-bash mvnw -Dtest='SavedPeopleMelissaServiceTest,SavedPeopleMelissaControllerTest,ObituaryPreservationTest,MelissaPersonSearchClientTest,MelissaTestControllerTest,ObituaryMelissaLookupServiceTest,ScraperStartupRunnerTest,SurvivorSectionExtractorTest' test
-```
-
-The `ContactTrackerApplicationTests` context test uses the configured database and is intentionally excluded from that command. Full Spring/Maven startup and live API verification require your Mac's dependencies, MySQL connection and environment variables.
-
-Rename validation: all 46 Java source/test files were checked against the upload and differ only by the package and application-class names. Database settings and migration files were preserved. Seven dashboard tests, the Melissa result-code checks, and installer checks passed. The older `SurvivorParserChecks` has an existing residence-city expectation mismatch that fails identically in the original upload and renamed project; this rename does not alter that parser behavior. Full Spring/Maven startup was not run here.
+Test databases are disposable H2 instances; tests never use local or Railway
+MySQL or the live Melissa API. `./mvnw test` also runs the earlier parser tests;
+the existing parserRegressionChecks city-expectation failure is documented in
+SECURE-LOGIN.md. The security update does not change that parser.

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,7 +28,7 @@ class MelissaTestControllerTest {
     void directSearchFailureHasAnErrorBodyInsteadOfAnEmptySuccess() throws Exception {
         when(client.searchByName("Taylor Example")).thenThrow(new MelissaSearchException(
                 "MELISSA_API_ERROR", "Product not enabled (GE08).", List.of("GE08")));
-        mvc.perform(get("/api/melissa/search-by-name").param("name", "Taylor Example"))
+        mvc.perform(post("/api/melissa/search-by-name").param("name", "Taylor Example"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error").value("MELISSA_API_ERROR"))
                 .andExpect(jsonPath("$.resultCodes[0]").value("GE08"));
@@ -40,7 +40,7 @@ class MelissaTestControllerTest {
                 .thenReturn(new MelissaSearchResult("NO_EXACT_MATCH", "No exact match.",
                         Map.of("full", "Taylor Example", "state", "TX"), "strict", 0, 5,
                         "UE04", List.of("UE04"), 0, 0, 0, false, List.of()));
-        mvc.perform(get("/api/melissa/diagnose").param("name", "Taylor Example").param("state", "TX"))
+        mvc.perform(post("/api/melissa/diagnose").param("name", "Taylor Example").param("state", "TX"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NO_EXACT_MATCH"))
                 .andExpect(jsonPath("$.searchInputs.state").value("TX"))
@@ -53,7 +53,7 @@ class MelissaTestControllerTest {
     void invalidDiagnosticSettingsHaveABadRequestResponse() throws Exception {
         when(client.searchDetailed("Taylor Example", "", "", "", "invalid", 0))
                 .thenThrow(new IllegalArgumentException("match must be strict or loose."));
-        mvc.perform(get("/api/melissa/diagnose").param("name", "Taylor Example").param("match", "invalid"))
+        mvc.perform(post("/api/melissa/diagnose").param("name", "Taylor Example").param("match", "invalid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("INVALID_INPUT"));
     }
