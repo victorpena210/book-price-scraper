@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.victorpena</groupId>
-	<artifactId>book-price-scraper</artifactId>
+	<artifactId>contact-tracker</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>book-price-scraper</name>
-	<description>web scraper</description>
+	<name>Contact Tracker</name>
+	<description>Saved contact research and lookup tracker</description>
 	<url/>
 	<licenses>
 		<license/>

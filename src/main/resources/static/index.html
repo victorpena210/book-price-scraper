@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contact Tracker · Saved names</title>
+<link rel="stylesheet" href="/saved-people.css"><script src="/saved-people.js?v=20261008-3" defer></script>
+</head><body><main>
+<header><p class="eyebrow">Contact Tracker · API testing</p><h1>Contact Tracker</h1><p>Test your existing records with Melissa Personator Search.</p></header>
+<section class="stats" aria-label="Database summary">
+<div><strong id="people-count">—</strong><span>Saved people</span></div>
+<div><strong id="obituary-count">—</strong><span>Saved obituaries</span></div>
+<div><strong id="tested-count">0</strong><span>Records processed (including errors)</span></div>
+<div><strong id="request-count">0</strong><span>Lookup attempts this session</span></div>
+</section>
+<section class="panel"><h2>Test the connection</h2>
+<p id="key-status">Checking the app’s Melissa configuration…</p>
+<p id="lookup-version" class="muted"></p>
+<p class="muted">Start with one saved name. Each new lookup may use Melissa credits. Names with the same name, city, and state share a result during this session.</p>
+<div class="actions">
+<button id="test-first" disabled>Test first name</button><button id="test-ten" class="secondary" disabled>Test next 10</button><button id="test-all" class="secondary" disabled>Test all remaining</button><button id="stop" class="secondary" disabled>Stop after current name</button>
+</div><p id="progress" role="status" aria-live="polite">Loading saved records…</p>
+<progress id="progress-bar" value="0" max="1" aria-label="Current test progress" hidden></progress><div id="error" role="alert" hidden></div>
+</section>
+<section class="panel"><div class="section-heading"><h2>Saved people</h2><div class="actions"><button id="reload" class="secondary">Reload saved names</button><button id="download" class="secondary" disabled>Download test results</button></div></div>
+<p class="muted">Results below are possible matches for review. Testing keeps your saved records and phone numbers unchanged. Download results before closing or refreshing this page.</p>
+<div class="table-wrap"><table><thead><tr><th>Saved person</th><th>Saved location</th><th>Melissa result</th><th>Action</th></tr></thead><tbody id="people"></tbody></table></div></section>
+<details class="panel"><summary>Setup and troubleshooting</summary>
+<p>In Spring Tools for Eclipse: <strong>Run → Run Configurations → Spring Boot App → ContactTrackerApplication → Environment</strong>. Add <code>MELISSA_API_KEY</code> with your new Personator Search license key, then restart the app. Keep your working <code>DB_PASSWORD</code> variable.</p>
+<p>In IntelliJ, use <strong>Run → Edit Configurations → Environment variables</strong>.</p>
+<p><strong>GE08</strong> means the key is not enabled for the requested product or level. A configured key must also have Personator Search access. The test stops on this error so it does not repeat the failing request for every name.</p>
+<p><strong>UE03</strong> means Melissa rejected the requested page. The queue stops on this error. Download the test results so the page and response-count details can be checked before another batch.</p>
+<p>Keep <code>scraper.run-on-startup=false</code> while testing. No new scrape is needed. The existing names are read directly from <code>book_price_scraper</code>.</p>
+<p>A strict search uses the saved person’s own city and state when available. A matching name alone does not confirm identity. The test requests the first page of up to five candidates and marks when more pages exist.</p>
+</details></main></body></html>

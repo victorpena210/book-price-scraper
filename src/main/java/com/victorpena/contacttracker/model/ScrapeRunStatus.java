@@ -1,4 +1,4 @@
-package com.victorpena.bookpricescraper.model;
+package com.victorpena.contacttracker.model;
 
 public enum ScrapeRunStatus {
     STARTED,
