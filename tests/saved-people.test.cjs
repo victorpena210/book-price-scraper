@@ -9,6 +9,7 @@ class Element {
   append(...elements){this.children.push(...elements);}
   replaceChildren(...elements){this.children=elements;}
   addEventListener(name,fn){this.events[name]=fn;}
+  removeAttribute(name){delete this[name];}
   click(){return this.events.click?.();}
 }
 function fixture({key=true,mode='ok',blocked=false}={}){
@@ -16,14 +17,19 @@ function fixture({key=true,mode='ok',blocked=false}={}){
  const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const person=(id,name,city='Austin')=>({personId:id,fullName:name,residenceCity:city,residenceState:'TX',relationship:'sibling',deceasedName:'Example'});
  const rows=[person(1,'Taylor Example'),person(2,'Taylor Example'),person(3,'Casey Example','Dallas')];
- const state={calls:[],requests:[],redirects:[],mode,key,release:null,version:'2026-10-08.3'};
+ const state={calls:[],requests:[],redirects:[],mode,key,release:null,version:'2026-10-08.3',importPosts:0,
+  importResult:{status:'COMPLETED',total:2,processed:2,peopleSaved:3,message:'Import finished'}};
  const all=[];
  const document={getElementById:get,createElement:tag=>{const e=new Element(tag);all.push(e);return e;},createDocumentFragment:()=>new Element('fragment'),querySelectorAll:()=>all.filter(e=>e.dataset.testPerson)};
- const context=vm.createContext({document,console,Blob,URL,Date,window:{location:{replace:url=>state.redirects.push(url)}},setTimeout:fn=>setTimeout(fn,0),fetch:async(url,options)=>{
+ const context=vm.createContext({document,console,Blob,URL,Date,clearTimeout,window:{location:{replace:url=>state.redirects.push(url)}},setTimeout:fn=>setTimeout(fn,0),fetch:async(url,options)=>{
   state.requests.push({url,options});
   if(url==='/api/session') return {ok:true,json:async()=>({email:'clay@example.test',csrfHeader:'X-CSRF-TOKEN',csrfToken:'test-csrf'})};
   if(url==='/logout') return {ok:true,status:204};
   if(state.mode==='expired') return {ok:false,status:401};
+  if(url==='/api/obituaries/import') {
+   if(options.method==='POST') {state.importPosts++;return {ok:true,status:202,json:async()=>({status:'RUNNING',total:0,processed:0,message:'Loading'})};}
+   return {ok:true,json:async()=>state.importPosts?state.importResult:{status:'IDLE',message:'Ready',total:0,processed:0}};
+  }
   if(url.endsWith('/records'))return {ok:true,json:async()=>({apiKeyConfigured:state.key,totalPeople:rows.length,totalObituaries:2,people:rows,lookupVersion:state.version})};
   const id=JSON.parse(options.body).personIds[0];state.calls.push(id);
   if(blocked)await new Promise(resolve=>state.release=resolve);
@@ -32,7 +38,8 @@ function fixture({key=true,mode='ok',blocked=false}={}){
   return {ok:true,json:async()=>({results:[result],apiRequests:1,stopped:failed,message:result.message})};
  }});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/main/resources/static/saved-people.js'),'utf8'),context);
- return {context,state,get,all,rows,ready:()=>waitUntil(()=>get('people-count').textContent===3 && !get('reload').disabled)};
+ get('source-url').value='https://www.legacy.com/us/obituaries/local/texas/austin-area';
+ return {context,state,get,all,rows,ready:()=>waitUntil(()=>get('people-count').textContent===3 && !get('reload').disabled && !get('import-start').disabled)};
 }
 async function waitUntil(predicate){for(let i=0;i<100;i++){if(predicate())return;await new Promise(r=>setTimeout(r,2));}throw new Error('fixture did not settle');}
 test('loading is read-only; single then all deduplicates saved names across runs',async()=>{
@@ -89,4 +96,28 @@ test('sign out sends a CSRF-protected POST and returns to login',async()=>{
  const request=f.state.requests.find(r=>r.url==='/logout');
  assert.equal(request.options.method,'POST');assert.equal(request.options.headers['X-CSRF-TOKEN'],'test-csrf');
  assert.deepEqual(f.state.redirects,['/login?logout']);
+});
+
+test('import posts the URL with CSRF, prevents double submission, then refreshes records without Melissa calls',async()=>{
+ const f=fixture({key:false});await f.ready();
+ const submit=()=>f.get('import-form').events.submit({preventDefault(){}});
+ const first=submit();await submit();await first;
+ assert.equal(f.state.importPosts,1);
+ const request=f.state.requests.find(r=>r.url==='/api/obituaries/import' && r.options.method==='POST');
+ assert.equal(JSON.parse(request.options.body).url,f.get('source-url').value);
+ assert.equal(request.options.headers['X-CSRF-TOKEN'],'test-csrf');
+ await waitUntil(()=>!f.get('import-start').disabled);
+ assert.deepEqual(f.state.calls,[]);
+ assert.ok(f.state.requests.filter(r=>r.url.endsWith('/records')).length>=2);
+ assert.equal(f.get('test-first').disabled,true);
+});
+
+test('blocked import displays its error and allows another import without starting a lookup',async()=>{
+ const f=fixture();await f.ready();
+ f.state.importResult={status:'FAILED',message:'Legacy returned HTTP 403',total:0,processed:0};
+ await f.get('import-form').events.submit({preventDefault(){}});
+ await waitUntil(()=>!f.get('import-start').disabled);
+ assert.match(f.get('import-error').textContent,/403/);
+ assert.equal(f.get('import-error').hidden,false);
+ assert.deepEqual(f.state.calls,[]);
 });

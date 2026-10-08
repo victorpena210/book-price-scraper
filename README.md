@@ -46,6 +46,26 @@ local database records.
 
 ## Saved contacts
 
+Use **Import names** on the homepage with the prefilled Legacy Austin URL:
+https://www.legacy.com/us/obituaries/local/texas/austin-area
+
+The signed-in POST `/api/obituaries/import` starts a background import; GET at
+the same path returns progress. The import reads up to 100 entries from the
+current results page, then saves each obituary and its parsed survivor names to
+the connected database. It makes no Melissa requests. Refreshing the browser
+reconnects to progress; an app restart resets the progress display, but committed
+records remain. Repeating an import reuses matching obituary URLs and person
+records, preserving saved phone numbers. One import runs at a time per app
+instance; this version is intended for the existing single-replica deployment.
+
+Only the exact Austin listing URL is accepted. Fetched links and every redirect
+must stay on HTTPS www.legacy.com obituary paths. HTTP 401, 403, or 429 stops the
+import with a visible message; no access restrictions are bypassed. Other failed
+detail pages are counted and existing saved people are preserved. An empty or
+changed listing is reported as an error. This imports the current page, not the
+whole Austin archive, and the parser only saves names it can extract from
+survivor sections. Review extracted names before using lookup matches.
+
 The homepage reads saved records without making a Melissa request. Use Test first
 name before testing a batch. Results are possible matches for review; testing
 does not overwrite saved records or phone numbers. Download results before
@@ -60,6 +80,7 @@ CSRF token. They cannot be opened as GET links.
 
 ```bash
 ./mvnw -Dtest=SecurityIntegrationTest,ContactTrackerApplicationTests test
+./mvnw -Dtest=BookScraperClientTest,ObituaryImportServiceTest,ObituaryImportIntegrationTest test
 node --test tests/saved-people.test.cjs
 ```
 

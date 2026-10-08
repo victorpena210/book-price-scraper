@@ -2,18 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Contact Tracker · Saved names</title>
+<title>Contact Tracker · Import and test names</title>
 <meta name="robots" content="noindex,nofollow">
-<link rel="stylesheet" href="/saved-people.css"><script src="/saved-people.js?v=20261008-login" defer></script>
+<link rel="stylesheet" href="/saved-people.css?v=20261008-import"><script src="/saved-people.js?v=20261008-import" defer></script>
 </head><body><main>
-<header><div class="section-heading"><p class="eyebrow">Contact Tracker · API testing</p><div class="actions"><span id="signed-in-email" class="muted"></span><button id="sign-out" class="secondary" disabled>Sign out</button></div></div><h1>Contact Tracker</h1><p>Test your existing records with Melissa Personator Search.</p></header>
+<header><div class="section-heading"><p class="eyebrow">Contact Tracker · Contact research</p><div class="actions"><span id="signed-in-email" class="muted"></span><button id="sign-out" class="secondary" disabled>Sign out</button></div></div><h1>Contact Tracker</h1><p>Import names from Austin obituaries, then review possible matches with Melissa Personator Search.</p></header>
 <section class="stats" aria-label="Database summary">
 <div><strong id="people-count">—</strong><span>Saved people</span></div>
 <div><strong id="obituary-count">—</strong><span>Saved obituaries</span></div>
 <div><strong id="tested-count">0</strong><span>Records processed (including errors)</span></div>
 <div><strong id="request-count">0</strong><span>Lookup attempts this session</span></div>
 </section>
-<section class="panel"><h2>Test the connection</h2>
+<section class="panel" aria-labelledby="import-heading"><h2 id="import-heading">1. Import names from a website</h2>
+<form id="import-form">
+<label for="source-url">Website URL</label>
+<input id="source-url" name="url" type="url" maxlength="300" required value="https://www.legacy.com/us/obituaries/local/texas/austin-area" aria-describedby="source-help">
+<p id="source-help" class="muted">Supported source: Legacy’s Austin-area listing. Imports up to 100 obituaries from the current results page and extracts survivor names where available. Repeated imports update matching records.</p>
+<div class="actions"><button id="import-start" type="submit" disabled>Import names</button><button id="import-refresh" type="button" class="secondary" disabled>Check import status</button></div>
+</form>
+<p id="import-status" role="status" aria-live="polite">Checking import status…</p>
+<progress id="import-progress" value="0" max="1" aria-label="Obituary import progress" hidden></progress>
+<div id="import-error" role="alert" hidden></div>
+<p class="muted">Imports save to this app’s database and use no Melissa credits. The import continues if you leave this page; return to check its progress. If the app restarts, import again to continue from the saved records.</p>
+</section>
+<section class="panel"><h2>2. Test names with Melissa</h2>
 <p id="key-status">Checking the app’s Melissa configuration…</p>
 <p id="lookup-version" class="muted"></p>
 <p class="muted">Start with one saved name. Each new lookup may use Melissa credits. Names with the same name, city, and state share a result during this session.</p>
@@ -30,6 +42,6 @@
 <p>In IntelliJ, use <strong>Run → Edit Configurations → Environment variables</strong>.</p>
 <p><strong>GE08</strong> means the key is not enabled for the requested product or level. A configured key must also have Personator Search access. The test stops on this error so it does not repeat the failing request for every name.</p>
 <p><strong>UE03</strong> means Melissa rejected the requested page. The queue stops on this error. Download the test results so the page and response-count details can be checked before another batch.</p>
-<p>Keep <code>scraper.run-on-startup=false</code> while testing. No new scrape is needed. The existing names are read directly from <code>book_price_scraper</code>.</p>
+<p>Use <strong>Import names</strong> above to populate the connected database. Railway has its own database; records saved on your Mac must be imported separately. Keep <code>scraper.run-on-startup=false</code> so imports begin only when requested.</p>
 <p>A strict search uses the saved person’s own city and state when available. A matching name alone does not confirm identity. The test requests the first page of up to five candidates and marks when more pages exist.</p>
 </details></main></body></html>

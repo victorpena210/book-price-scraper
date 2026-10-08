@@ -1,11 +1,14 @@
 package com.victorpena.contacttracker.scraper;
 
 import org.jsoup.Jsoup;
+import org.jsoup.Connection;
+import org.jsoup.HttpStatusException;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,7 +17,7 @@ import java.util.Map;
 @Component
 public class BookScraperClient {
 
-    private static final String BASE_URL =
+    public static final String AUSTIN_URL =
             "https://www.legacy.com/us/obituaries/local/texas/austin-area";
 
     // Legacy embeds the obituary listing inside Next.js hydration data.
@@ -45,9 +48,7 @@ public class BookScraperClient {
      * from console output.
      */
     public List<ObituaryPerson> scrapeObituaries() throws IOException {
-
-        Document listingDocument = connect(BASE_URL);
-        List<ObituaryPerson> people = extractPeople(listingDocument);
+        List<ObituaryPerson> people = loadListing(AUSTIN_URL);
         List<ObituaryPerson> parsedPeople = new ArrayList<>();
 
         System.out.println("PEOPLE FOUND: " + people.size());
@@ -113,11 +114,59 @@ public class BookScraperClient {
         return List.copyOf(parsedPeople);
     }
 
-    private Document connect(String url) throws IOException {
-        return Jsoup.connect(url)
-                .userAgent("Mozilla/5.0")
-                .timeout(10_000)
-                .get();
+    public static String validateSource(String url) {
+        String value = url == null ? "" : url.trim();
+        if (value.equals(AUSTIN_URL) || value.equals(AUSTIN_URL + "/")) return AUSTIN_URL;
+        throw new IllegalArgumentException("Use the supported Legacy Austin URL: " + AUSTIN_URL);
+    }
+
+    public List<ObituaryPerson> loadListing(String url) throws IOException {
+        List<ObituaryPerson> people = extractPeople(connect(validateSource(url)));
+        if (people.isEmpty()) throw new IOException("No obituary links were found on the Austin results page. Legacy may have changed its page layout.");
+        return people.stream().limit(100).toList();
+    }
+
+    public ObituaryPerson loadDetail(ObituaryPerson person) throws IOException {
+        Document page = connect(person.obituaryUrl());
+        List<String> sections = new SurvivorSectionExtractor().extract(page);
+        return new ObituaryPerson(person.name(), person.obituaryUrl(), new SurvivorParser().parseSections(sections));
+    }
+
+    // Both the submitted source and every fetched link/redirect are restricted.
+    // Never turn this authenticated endpoint into a general-purpose URL fetcher.
+    static URI validateFetchUrl(String url) throws IOException {
+        try {
+            URI uri = URI.create(url);
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || !"www.legacy.com".equalsIgnoreCase(uri.getHost())
+                    || uri.getRawUserInfo() != null || uri.getPort() != -1
+                    || uri.getFragment() != null
+                    || uri.getPath() == null || !uri.getPath().startsWith("/us/obituaries/")
+                    || !uri.normalize().equals(uri)) {
+                throw new IllegalArgumentException();
+            }
+            return uri;
+        } catch (IllegalArgumentException exception) {
+            throw new IOException("This obituary link is outside the supported Legacy source.");
+        }
+    }
+
+    Document connect(String url) throws IOException {
+        URI current = validateFetchUrl(url);
+        for (int redirects = 0; redirects < 5; redirects++) {
+            Connection.Response response = Jsoup.connect(current.toString())
+                    .userAgent("ContactTracker/1.0 (obituary research)")
+                    .timeout(10_000).maxBodySize(4_000_000)
+                    .followRedirects(false).ignoreHttpErrors(true).execute();
+            int status = response.statusCode();
+            if (status >= 300 && status < 400 && response.hasHeader("Location")) {
+                current = validateFetchUrl(current.resolve(response.header("Location")).toString());
+                continue;
+            }
+            if (status != 200) throw new HttpStatusException("Legacy returned HTTP " + status, status, current.toString());
+            return response.parse();
+        }
+        throw new IOException("Legacy redirected the request too many times.");
     }
 
     /**
@@ -202,7 +251,7 @@ public class BookScraperClient {
 
             if (!name.isBlank() && !obituaryUrl.isBlank()) {
                 peopleByName.putIfAbsent(
-                        name,
+                        obituaryUrl,
                         new ObituaryPerson(name, obituaryUrl)
                 );
             }

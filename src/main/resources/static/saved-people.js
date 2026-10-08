@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 let people = [], configured = false, busy = false, stopRequested = false, attempts = 0;
 let lookupVersion = '';
 let session = null;
+let importing = false, importKnown = false, importTimer = null;
 const results = new Map(), completed = new Set(), queryCache = new Map(), rowCells = new Map();
 const normalized = value => (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 const queryKey = p => JSON.stringify([p.fullName, p.residenceCity, p.residenceState].map(normalized));
@@ -10,13 +11,16 @@ const pending = () => people.filter(p => !completed.has(p.personId));
 const make = (tag, text, className) => { const e = document.createElement(tag); e.textContent = text; if (className) e.className = className; return e; };
 
 function controls() {
-  $('test-first').disabled = busy || !configured || pending().length === 0;
+  $('test-first').disabled = busy || importing || !configured || pending().length === 0;
   $('test-ten').disabled = $('test-first').disabled;
   $('test-all').disabled = $('test-first').disabled;
   $('stop').disabled = !busy || stopRequested;
   $('reload').disabled = busy;
   $('download').disabled = results.size === 0 || busy;
-  document.querySelectorAll('[data-test-person]').forEach(b => b.disabled = busy || !configured);
+  document.querySelectorAll('[data-test-person]').forEach(b => b.disabled = busy || importing || !configured);
+  $('import-start').disabled = busy || importing || !session || !importKnown;
+  $('source-url').disabled = busy || importing || !session;
+  $('import-refresh').disabled = busy || !session;
   $('tested-count').textContent = completed.size;
   $('request-count').textContent = attempts;
 }
@@ -43,6 +47,58 @@ async function api(path, options = {}) {
 }
 
 function showError(message) { $('error').textContent = message; $('error').hidden = !message; }
+
+function showImportError(message) { $('import-error').textContent = message; $('import-error').hidden = !message; }
+
+function displayImport(data) {
+  importKnown = true;
+  importing = data.status === 'RUNNING';
+  $('import-status').textContent = data.message;
+  $('import-progress').hidden = !importing;
+  if (data.total > 0) {
+    $('import-progress').max = data.total;
+    $('import-progress').value = data.processed;
+  } else {
+    $('import-progress').removeAttribute('value');
+  }
+  showImportError(data.status === 'FAILED' ? data.message : '');
+  controls();
+  clearTimeout(importTimer);
+  if (importing) importTimer = setTimeout(checkImport, 2000);
+}
+
+async function checkImport() {
+  if (!session) return;
+  const wasImporting = importing;
+  try {
+    displayImport(await api('/api/obituaries/import'));
+    if (wasImporting && !importing) await load();
+  } catch (error) {
+    importKnown = false;
+    clearTimeout(importTimer);
+    showImportError(`${error.message} Use Check import status to reconnect.`);
+    controls();
+  }
+}
+
+$('import-refresh').addEventListener('click', checkImport);
+$('import-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy || importing || !session || !importKnown) return;
+  const url = $('source-url').value.trim();
+  importing = true; controls(); showImportError('');
+  $('import-status').textContent = 'Starting import…';
+  try {
+    displayImport(await api('/api/obituaries/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url})}));
+    if (!importing) await load();
+  } catch (error) {
+    // The POST may have reached the server even if its response was lost.
+    // Recheck before allowing another submission.
+    importKnown = false;
+    showImportError(`${error.message} Use Check import status before trying again.`);
+    controls();
+  }
+});
 
 function renderResult(personId) {
   const cell = rowCells.get(personId), result = results.get(personId);
@@ -118,7 +174,7 @@ async function load() {
 }
 
 async function run(selection, force = false) {
-  if (busy || !configured || !selection.length) return;
+  if (busy || importing || !configured || !selection.length) return;
   busy = true; stopRequested = false; controls(); showError('');
   let processed = 0, stopped = false;
   $('progress-bar').hidden = false; $('progress-bar').value = 0; $('progress-bar').max = selection.length;
@@ -164,6 +220,7 @@ $('download').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url),1000);
 });
 $('sign-out').addEventListener('click', async () => {
+  clearTimeout(importTimer);
   stopRequested = true; $('sign-out').disabled = true;
   try {
     await api('/logout', {method:'POST'});
@@ -178,6 +235,7 @@ async function initialize() {
     $('signed-in-email').textContent = session.email;
     $('sign-out').disabled = false;
     await load();
+    await checkImport();
   } catch (error) { showError(error.message); }
 }
 initialize();
